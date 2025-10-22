@@ -208,6 +208,15 @@ Did it show?
 
 Radical! We've created a shared filesystem between two ec2 instances! They can both utilize this simultaneously. 
 
+## Cleanup:
+1. Delete your two EC2 instances
+    - EC2 console > Instances > Check both > Instance State > Terminate (delete) instance.
+2. Delete your EFS
+    - EFS Console > File Systems > Select your EFS > Delete
+
+Keep the SGs for future use
+
+
 ## Key Takeaways
 - It's important to consider SGs and **network restrictions** when dealing with EFS, since it's network based.
 - EFS can **be shared** by two (or more) machines, a powerful tool if you need lots of computers to work with **shared data**.
