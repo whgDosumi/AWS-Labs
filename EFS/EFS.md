@@ -13,7 +13,7 @@ EFS stands for **Elastic File System**, and is one of the main three storage ser
 
 ### EBS (Elastic Block Store)
 EBS is simple to understand if you compare them to VHDs when creating virtual machines. ec2 creates these volumes when a new instance is launched, for the OS.
-- They are **directly attached** to an instance. A single EBS volume can only be attached to one resource at a time. 
+- They are **directly attached** to an instance. A single EBS volume can typically only be attached to one resource at a time. 
 - Their size is explicitly defined, and you pay for the total size.
     - They can be expanded easily, but shrinking requires workarounds.
 - Usually used for **root volumes**
@@ -23,12 +23,13 @@ EFS is like having a NAS (network attached storage) in your VPC (virtual private
 - Shared storage for **multiple resources**
 - Grows and shrinks **automatically**, you pay for what you use.
 - Still mounted in the OS, so they can be treated like local storage from the OS perspective.
-- Subject to **network restrictions**, SGs (security groups) and firewalls can get in the way. 
+- Subject to **network restrictions**. SGs, firewalls, and routing must align to allow them to work.
 
 ### S3 (Simple Storage Service)
 S3 is the most abstracted storage service of the three. S3 is **object based** whereas the others are file/blocksystem based. Ideal for static content such as media, web content, backups, etc. Data is stored as **objects** in **buckets** and are accessed over **HTTP/HTTPS**.
 - Not a filesystem, and is not mountable.
 - Completely web based
+- Ideal for unstructured data
 - Ridiculously scalable, durable, and available.
 
 
@@ -48,34 +49,35 @@ Because EFS is network-based, it's important to have SGs set up in advance that 
 2. Open EC2 > Security Groups
 3. Delete all groups except the "default" one.
 4. Open default, verify there are no inbound rules. 
-![](1.png)
+![No inbound rules on default SG](SG-default-01.png)
 5. Verify there is one outbound rule allowing all outbound traffic, and no others.
-![](2.png)
+![One outbound rule allowing all outbound traffic](SG-default-02.png)
 6. Go back to Security Groups, and click Create Security Group.
-    - Set the name to "SG-HomeSSH"
-    - Description "Allows SSH traffic from my home"
-    - Leave VPC as default
-    - Delete the default outbound rule
-    - Add a new inbound rule
-        - Type: SSH
-        - Source: Custom
-        - Go to https://icanhazip.com and copy your public IP address
-        - Paste it into the search box, add /32 afterwards, eg. 255.255.255.255/32 and click on the ip block it suggests:
-        ![](3.png)
-    - Verify your rules look like so:
-    ![](4.png)
-7. Click "Create security group" to finalize the SG.
+    - **Create SG-HomeSSH**
+      - Name: `SG-HomeSSH`
+      - Description: `Allows SSH traffic from my home IP`
+      - VPC: Keep default
+      - Outbound Rules: Delete the default rule (allows all traffic)
+      - Inbound Rules: Add a new rule
+        - Type: `SSH` (port 22)
+        - Source: `Custom`
+        - Visit https://icanhazip.com to get your public IP, append `/32` (e.g., `192.168.1.1/32`) to specify a single IP, and select the suggested CIDR block.
+        ![Screenshot showing the CIDR block](CIDR-block.png)
+        - Note: If your home IP changes in the future (common with ISPs), update this rule with your new IP to regain access to your resources.
+7. Click **"Create security group"** to finalize the SG.
 8. One more group! Go to Security groups and click "Create security group" again.
-    - This one is for our EFS. Name it "SG-EFS"
-    - Configure the outbound rule, click inside the search box on the default rule (allowing all traffic) and select your "default" sg. You may need to scroll.
+    - **Create SG-EFS**
+      - Name: `SG-EFS`
+      - Description: `Security group for EFS`
+      - Outbound Rules: Click inside the search box on the default rule (allowing all traffic) and select your "default" sg. You may need to scroll.
         - What you're doing here is allowing your EFS to communicate OUTBOUND with any resource in your VPC with the "default" SG.
     ![](5.png)
     ![](6.png)
-    - Add a new Inbound rule, set Type to NFS, and configure it so the source is the default SG again. This allows the EFS to accept traffic **inbound** on port 2049 **from** other resources in your default security group.
+      - Inbound Rules: Add a new rule, set Type to NFS, and configure it so the source is the default SG again. This allows the EFS to accept traffic **inbound** on port 2049 **from** other resources in your default security group.
     ![](7.png)
-9. Click "Create security group" to finalize the SG. You should now have three SGs.
-![](8.png)
+9. Click "Create security group" to finalize the SG.
 
+You should now have the following SGs:
 #### default
 - The default sg for our resources.
 - Allows all traffic outbound.
@@ -105,6 +107,7 @@ Finally, it's time to make our EFS.
 5. For the purposes of this exercise, leave everything as default and click Next.
 6. On the Network Access page, we can configure which AZs will have mount points. Each of these will need to be configured with your **SG-EFS SG**. On each mount target, under security groups, hit the X on the default SG and add your SG-EFS group. Each mount target should have the SG-EFS security group only, like so:
 ![](9.png)
+    - Mount points define where resources can connect to your EFS. So, if you only specify one subnet, only resources in that subnet can access it.
 7. Click Next and then click Next on the File System Policy page as well. Finally, hit "Create" to create your EFS.
 
 ## Create EC2 Instance and Attach our EFS
